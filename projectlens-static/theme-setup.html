@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Theme Setup - ProjectLens</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-content">
+      <h1>ProjectLens</h1>
+      <div class="navbar-right">
+        <div class="user-info">
+          <span id="userName">Loading...</span> | <span id="userRole">TRAINER</span>
+        </div>
+        <button class="btn btn-secondary" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h2 style="margin-top: 2rem; margin-bottom: 1rem;">Create New Theme</h2>
+    <p style="color: #6b7280; margin-bottom: 2rem;">Define themes and objectives for pod submissions</p>
+
+    <div id="alert-container"></div>
+
+    <!-- Theme Creation Form -->
+    <form id="themeForm">
+      <div class="form-group">
+        <label for="themeTitle">Theme Title *</label>
+        <input type="text" id="themeTitle" placeholder="e.g., AI-Powered Learning Platform" required>
+        <div class="error-message" id="themeTitle-error"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="themeDescription">Description *</label>
+        <textarea id="themeDescription" placeholder="Describe the theme and its importance" required></textarea>
+        <div class="error-message" id="themeDescription-error"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="themeObjectives">Objectives (one per line) *</label>
+        <textarea id="themeObjectives" placeholder="Adapt content based on student performance&#10;Provide real-time feedback&#10;Track learning progress" required></textarea>
+        <div class="error-message" id="themeObjectives-error"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="themeKeywords">Keywords (comma-separated) *</label>
+        <input type="text" id="themeKeywords" placeholder="e.g., AI, machine-learning, personalization, analytics, feedback" required>
+        <div class="error-message" id="themeKeywords-error"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="submissionDeadline">Submission Deadline *</label>
+        <input type="datetime-local" id="submissionDeadline" required>
+        <div class="error-message" id="submissionDeadline-error"></div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">Create Theme</button>
+    </form>
+
+    <!-- Existing Themes -->
+    <h3 style="margin-top: 3rem; margin-bottom: 1.5rem;">Active Themes</h3>
+    <div id="themesContainer" class="card-grid">
+      <p style="color: #6b7280;">Loading themes...</p>
+    </div>
+  </div>
+
+  <script src="js/mock-data.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    // Require trainer role
+    requireRole('TRAINER', 'index.html');
+
+    // Initialize page
+    function initPage() {
+      const user = getCurrentUser();
+      document.getElementById('userName').textContent = user.name;
+      loadThemes();
+    }
+
+    // Load and display themes
+    function loadThemes() {
+      const container = document.getElementById('themesContainer');
+      
+      if (themes.length === 0) {
+        container.innerHTML = '<p style="color: #6b7280; grid-column: 1/-1;">No themes created yet</p>';
+        return;
+      }
+
+      container.innerHTML = themes.map(theme => `
+        <div class="card">
+          <h4 style="margin-bottom: 0.5rem;">${theme.title}</h4>
+          <p style="margin-bottom: 1rem; font-size: 0.9rem; color: #6b7280;">${theme.description}</p>
+          
+          <div style="margin-bottom: 1rem;">
+            <p style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Objectives:</p>
+            <ul style="margin-left: 1.5rem; font-size: 0.9rem;">
+              ${theme.objectives.map(obj => `<li>${obj}</li>`).join('')}
+            </ul>
+          </div>
+
+          <div style="margin-bottom: 1rem;">
+            <p style="font-size: 0.85rem; font-weight: 600; margin-bottom: 0.5rem;">Keywords:</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+              ${theme.keywords.map(kw => `<span class="badge badge-info">${kw}</span>`).join('')}
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e5e7eb; padding-top: 1rem;">
+            <span style="font-size: 0.9rem; color: #6b7280;">
+              Deadline: <strong>${formatDate(theme.submissionDeadline)}</strong>
+            </span>
+            <span class="badge ${isDeadlinePassed(theme.submissionDeadline) ? 'badge-danger' : 'badge-success'}">
+              ${isDeadlinePassed(theme.submissionDeadline) ? 'Closed' : 'Open'}
+            </span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // Validate form
+    function validateThemeForm() {
+      let isValid = true;
+      const fields = ['themeTitle', 'themeDescription', 'themeObjectives', 'themeKeywords', 'submissionDeadline'];
+
+      fields.forEach(fieldId => clearFieldError(fieldId));
+
+      const title = document.getElementById('themeTitle').value.trim();
+      if (!title) {
+        showFieldError('themeTitle', 'Theme title is required');
+        isValid = false;
+      }
+
+      const description = document.getElementById('themeDescription').value.trim();
+      if (!description) {
+        showFieldError('themeDescription', 'Description is required');
+        isValid = false;
+      }
+
+      const objectives = document.getElementById('themeObjectives').value.trim();
+      if (!objectives) {
+        showFieldError('themeObjectives', 'At least one objective is required');
+        isValid = false;
+      }
+
+      const keywords = document.getElementById('themeKeywords').value.trim();
+      if (!keywords) {
+        showFieldError('themeKeywords', 'At least one keyword is required');
+        isValid = false;
+      }
+
+      const deadline = document.getElementById('submissionDeadline').value;
+      if (!deadline) {
+        showFieldError('submissionDeadline', 'Submission deadline is required');
+        isValid = false;
+      } else {
+        const deadlineDate = new Date(deadline);
+        if (deadlineDate <= new Date()) {
+          showFieldError('submissionDeadline', 'Deadline must be in the future');
+          isValid = false;
+        }
+      }
+
+      return isValid;
+    }
+
+    // Handle form submission
+    document.getElementById('themeForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      if (!validateThemeForm()) {
+        showAlert('Please fix the errors above', 'error');
+        return;
+      }
+
+      // Create new theme object
+      const newTheme = {
+        id: Math.max(...themes.map(t => t.id), 0) + 1,
+        cohortId: 1,
+        title: document.getElementById('themeTitle').value.trim(),
+        description: document.getElementById('themeDescription').value.trim(),
+        objectives: document.getElementById('themeObjectives').value.trim().split('\n').map(o => o.trim()).filter(o => o),
+        keywords: parseCommaSeparated(document.getElementById('themeKeywords').value),
+        submissionDeadline: new Date(document.getElementById('submissionDeadline').value).toISOString()
+      };
+
+      // Add to themes array
+      themes.push(newTheme);
+
+      // Show success message
+      showAlert(`Theme "${newTheme.title}" created successfully!`, 'success');
+
+      // Reset form
+      document.getElementById('themeForm').reset();
+
+      // Reload themes display
+      loadThemes();
+    });
+
+    // Logout
+    function logout() {
+      clearCurrentUser();
+      window.location.href = 'index.html';
+    }
+
+    // Initialize on page load
+    initPage();
+  </script>
+</body>
+</html>
