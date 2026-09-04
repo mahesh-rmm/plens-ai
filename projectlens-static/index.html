@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProjectLens - Login</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div class="container">
+    <div style="max-width: 600px; margin: 4rem auto; text-align: center;">
+      <h1 style="color: #2563eb; margin-bottom: 0.5rem;">ProjectLens</h1>
+      <p style="font-size: 1.1rem; color: #6b7280; margin-bottom: 3rem;">
+        AI-Powered Project Evaluation for Training Cohorts
+      </p>
+
+      <div style="background-color: white; padding: 2rem; border-radius: 8px; border: 1px solid #e5e7eb; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);">
+        <h2 style="margin-bottom: 2rem;">Select Your Role</h2>
+
+        <div id="alert-container"></div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 2rem;">
+          <div>
+            <label style="display: block; margin-bottom: 0.75rem; font-weight: 600;">Your Role</label>
+            <select id="roleSelect" style="width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 1rem;">
+              <option value="">-- Select Role --</option>
+              <option value="TRAINER">Trainer</option>
+              <option value="POD_LEAD">Pod Lead</option>
+              <option value="POD_MEMBER">Pod Member</option>
+            </select>
+          </div>
+
+          <div>
+            <label style="display: block; margin-bottom: 0.75rem; font-weight: 600;">Your Name</label>
+            <input type="text" id="userNameInput" placeholder="Enter your name" style="width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 1rem;">
+          </div>
+        </div>
+
+        <div id="podSelectContainer" style="display: none; margin-bottom: 2rem;">
+          <label style="display: block; margin-bottom: 0.75rem; font-weight: 600;">Your Pod</label>
+          <select id="podSelect" style="width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 1rem;">
+            <option value="">-- Select Pod --</option>
+            <option value="1">Pod Alpha</option>
+            <option value="2">Pod Beta</option>
+            <option value="3">Pod Gamma</option>
+          </select>
+        </div>
+
+        <button id="loginBtn" class="btn btn-primary" style="width: 100%; padding: 0.875rem; font-size: 1rem;">
+          Login to ProjectLens
+        </button>
+      </div>
+
+      <div style="margin-top: 2rem; padding: 1.5rem; background-color: #f3f4f6; border-radius: 8px; text-align: left;">
+        <h4 style="margin-bottom: 1rem;">Demo Credentials</h4>
+        <p style="font-size: 0.9rem; margin-bottom: 0.5rem;"><strong>Trainer:</strong> John Trainer</p>
+        <p style="font-size: 0.9rem; margin-bottom: 0.5rem;"><strong>Pod Lead:</strong> Alice Lead, Bob Lead, or Charlie Lead</p>
+        <p style="font-size: 0.9rem;"><strong>Pod Member:</strong> David Member (Pod Alpha)</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/mock-data.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    // Show pod selector only for pod roles
+    document.getElementById('roleSelect').addEventListener('change', function() {
+      const podContainer = document.getElementById('podSelectContainer');
+      if (this.value === 'POD_LEAD' || this.value === 'POD_MEMBER') {
+        podContainer.style.display = 'block';
+      } else {
+        podContainer.style.display = 'none';
+      }
+    });
+
+    // Handle login
+    document.getElementById('loginBtn').addEventListener('click', function() {
+      const role = document.getElementById('roleSelect').value;
+      const userName = document.getElementById('userNameInput').value.trim();
+      const podSelect = document.getElementById('podSelect');
+      const selectedPod = podSelect.style.display === 'none' ? null : podSelect.value;
+
+      // Validate inputs
+      if (!role) {
+        showAlert('Please select a role', 'error');
+        return;
+      }
+
+      if (!userName) {
+        showAlert('Please enter your name', 'error');
+        return;
+      }
+
+      if ((role === 'POD_LEAD' || role === 'POD_MEMBER') && !selectedPod) {
+        showAlert('Please select your pod', 'error');
+        return;
+      }
+
+      // Create mock user object
+      const mockUser = {
+        id: Math.random() * 1000,
+        name: userName,
+        role: role,
+        podId: selectedPod ? parseInt(selectedPod) : null
+      };
+
+      // Save user to session storage
+      setCurrentUser(mockUser);
+
+      // Redirect based on role
+      if (role === 'TRAINER') {
+        window.location.href = 'dashboard.html';
+      } else {
+        window.location.href = 'submission-form.html';
+      }
+    });
+
+    // Allow Enter key to login
+    document.getElementById('userNameInput').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        document.getElementById('loginBtn').click();
+      }
+    });
+  </script>
+</body>
+</html>
