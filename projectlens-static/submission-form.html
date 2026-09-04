@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Submit Project - ProjectLens</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-content">
+      <h1>ProjectLens</h1>
+      <div class="navbar-right">
+        <div class="user-info">
+          <span id="userName">Loading...</span> | <span id="userRole">POD_LEAD</span>
+        </div>
+        <button class="btn btn-secondary" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h2 style="margin-top: 2rem; margin-bottom: 1rem;">Submit Your Project Idea</h2>
+    <p style="color: #6b7280; margin-bottom: 2rem;">Submit your pod's project proposal for a selected theme</p>
+
+    <div id="alert-container"></div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem;">
+      <!-- Submission Form -->
+      <div>
+        <form id="submissionForm">
+          <div class="form-group">
+            <label for="themeSelect">Select Theme *</label>
+            <select id="themeSelect" required>
+              <option value="">-- Select a Theme --</option>
+            </select>
+            <div class="error-message" id="themeSelect-error"></div>
+          </div>
+
+          <div id="deadlineWarning" class="alert alert-info" style="display: none; margin-bottom: 1rem;">
+            <strong>⚠️ Submission Deadline Closed</strong><br>
+            The deadline for this theme has passed. You cannot submit new ideas.
+          </div>
+
+          <div class="form-group">
+            <label for="submissionTitle">Project Title *</label>
+            <input type="text" id="submissionTitle" placeholder="e.g., Smart Tutor: AI-Driven Learning Assistant" required>
+            <div class="error-message" id="submissionTitle-error"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="problemStatement">Problem Statement *</label>
+            <textarea id="problemStatement" placeholder="What problem does your project solve?" required></textarea>
+            <div class="error-message" id="problemStatement-error"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="objectives">Project Objectives *</label>
+            <textarea id="objectives" placeholder="What are the main objectives?" required></textarea>
+            <div class="error-message" id="objectives-error"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="scope">Scope & Deliverables *</label>
+            <textarea id="scope" placeholder="What will be delivered?" required></textarea>
+            <div class="error-message" id="scope-error"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="techStack">Technology Stack *</label>
+            <input type="text" id="techStack" placeholder="e.g., Python, TensorFlow, React, Node.js, PostgreSQL" required>
+            <div class="error-message" id="techStack-error"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="docLink">Documentation Link *</label>
+            <input type="url" id="docLink" placeholder="https://docs.example.com/your-project" required>
+            <div class="error-message" id="docLink-error"></div>
+          </div>
+
+          <button type="submit" class="btn btn-primary" id="submitBtn">Submit Project Idea</button>
+        </form>
+      </div>
+
+      <!-- My Submission Status -->
+      <div>
+        <h3 style="margin-bottom: 1.5rem;">Submission Status</h3>
+        <div id="statusContainer">
+          <div class="card">
+            <p style="color: #6b7280; text-align: center;">No submissions yet</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/mock-data.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    // Require pod role
+    function requirePodRole() {
+      const user = getCurrentUser();
+      if (!user || (user.role !== 'POD_LEAD' && user.role !== 'POD_MEMBER')) {
+        window.location.href = 'index.html';
+      }
+    }
+
+    // Initialize page
+    function initPage() {
+      const user = getCurrentUser();
+      document.getElementById('userName').textContent = user.name;
+      document.getElementById('userRole').textContent = user.role.replace('_', ' ');
+      
+      // Disable form for POD_MEMBER
+      if (user.role === 'POD_MEMBER') {
+        document.getElementById('submissionForm').style.display = 'none';
+        document.querySelector('p').textContent = 'View your pod\'s project submission and feedback';
+      }
+
+      loadThemes();
+      loadMySubmission();
+    }
+
+    // Load themes into dropdown
+    function loadThemes() {
+      const select = document.getElementById('themeSelect');
+      const options = themes.map(theme => `
+        <option value="${theme.id}" data-deadline="${theme.submissionDeadline}">
+          ${theme.title} (Deadline: ${formatDate(theme.submissionDeadline)})
+        </option>
+      `).join('');
+      select.innerHTML = '<option value="">-- Select a Theme --</option>' + options;
+    }
+
+    // Handle theme selection
+    document.getElementById('themeSelect').addEventListener('change', function() {
+      const selectedOption = this.options[this.selectedIndex];
+      const deadline = selectedOption.getAttribute('data-deadline');
+      const warningBox = document.getElementById('deadlineWarning');
+      const submitBtn = document.getElementById('submitBtn');
+      const user = getCurrentUser();
+
+      if (!deadline) {
+        warningBox.style.display = 'none';
+        submitBtn.disabled = false;
+      } else if (isDeadlinePassed(deadline)) {
+        warningBox.style.display = 'block';
+        submitBtn.disabled = true;
+      } else {
+        warningBox.style.display = 'none';
+        submitBtn.disabled = user.role === 'POD_MEMBER';
+      }
+    });
+
+    // Load my submission
+    function loadMySubmission() {
+      const user = getCurrentUser();
+      const container = document.getElementById('statusContainer');
+      const mySubmissions = submissions.filter(s => s.podId === user.podId);
+
+      if (mySubmissions.length === 0) {
+        container.innerHTML = `
+          <div class="card">
+            <p style="color: #6b7280; text-align: center;">No submissions yet</p>
+          </div>
+        `;
+        return;
+      }
+
+      // Get the latest submission
+      const latest = mySubmissions[mySubmissions.length - 1];
+      const evaluation = evaluations.find(e => e.submissionId === latest.id);
+      const decision = decisions.find(d => d.submissionId === latest.id);
+
+      let statusBadge = 'badge-info';
+      let statusText = 'Pending Review';
+      if (decision && decision.status) {
+        statusBadge = getDecisionBadgeClass(decision.status);
+        statusText = getDecisionLabel(decision.status);
+      }
+
+      let scoreBadge = '';
+      if (evaluation) {
+        scoreBadge = `
+          <div style="margin: 1rem 0;">
+            <p style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;">Alignment Score:</p>
+            <span class="badge ${getScoreBadgeClass(evaluation.alignmentScore)}">
+              ${evaluation.alignmentScore}% - ${getScoreLabel(evaluation.alignmentScore)}
+            </span>
+          </div>
+        `;
+      }
+
+      container.innerHTML = `
+        <div class="card">
+          <div style="margin-bottom: 1rem;">
+            <h4 style="margin-bottom: 0.5rem;">${latest.title}</h4>
+            <p style="font-size: 0.9rem; color: #6b7280;">Submitted: ${formatDate(latest.submittedAt)}</p>
+          </div>
+
+          ${scoreBadge}
+
+          <div style="margin: 1rem 0;">
+            <p style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;">Status:</p>
+            <span class="badge ${statusBadge}">${statusText}</span>
+          </div>
+
+          ${decision && decision.comments && decision.comments.length > 0 ? `
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+              <p style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;">Trainer Feedback:</p>
+              <p style="font-size: 0.9rem; color: #6b7280; background-color: #f3f4f6; padding: 0.75rem; border-radius: 4px;">
+                ${decision.comments}
+              </p>
+            </div>
+          ` : ''}
+
+          ${evaluation ? `
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e5e7eb;">
+              <p style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;">Matched Keywords:</p>
+              <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+                ${evaluation.matchedCriteria.map(c => `<span class="badge badge-success">${c}</span>`).join('')}
+              </div>
+              ${evaluation.missingCriteria.length > 0 ? `
+                <p style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;">Missing Keywords:</p>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                  ${evaluation.missingCriteria.map(c => `<span class="badge badge-danger">${c}</span>`).join('')}
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    // Validate form
+    function validateSubmissionForm() {
+      let isValid = true;
+      const fields = ['themeSelect', 'submissionTitle', 'problemStatement', 'objectives', 'scope', 'techStack', 'docLink'];
+
+      fields.forEach(fieldId => clearFieldError(fieldId));
+
+      const themeId = document.getElementById('themeSelect').value;
+      if (!themeId) {
+        showFieldError('themeSelect', 'Please select a theme');
+        isValid = false;
+      }
+
+      const title = document.getElementById('submissionTitle').value.trim();
+      if (!title) {
+        showFieldError('submissionTitle', 'Project title is required');
+        isValid = false;
+      }
+
+      const problem = document.getElementById('problemStatement').value.trim();
+      if (!problem) {
+        showFieldError('problemStatement', 'Problem statement is required');
+        isValid = false;
+      }
+
+      const objectives = document.getElementById('objectives').value.trim();
+      if (!objectives) {
+        showFieldError('objectives', 'Objectives are required');
+        isValid = false;
+      }
+
+      const scope = document.getElementById('scope').value.trim();
+      if (!scope) {
+        showFieldError('scope', 'Scope is required');
+        isValid = false;
+      }
+
+      const techStack = document.getElementById('techStack').value.trim();
+      if (!techStack) {
+        showFieldError('techStack', 'Technology stack is required');
+        isValid = false;
+      }
+
+      const docLink = document.getElementById('docLink').value.trim();
+      if (!docLink || !isValidUrl(docLink)) {
+        showFieldError('docLink', 'Valid documentation URL is required');
+        isValid = false;
+      }
+
+      return isValid;
+    }
+
+    // Handle form submission
+    document.getElementById('submissionForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      if (!validateSubmissionForm()) {
+        showAlert('Please fix the errors above', 'error');
+        return;
+      }
+
+      const user = getCurrentUser();
+      const themeId = parseInt(document.getElementById('themeSelect').value);
+
+      // Check if already submitted for this theme
+      const existingSubmission = submissions.find(s => s.podId === user.podId && s.themeId === themeId);
+      if (existingSubmission) {
+        showAlert('Your pod has already submitted for this theme. Edit your submission instead.', 'error');
+        return;
+      }
+
+      // Create new submission
+      const newSubmission = {
+        id: Math.max(...submissions.map(s => s.id), 0) + 1,
+        podId: user.podId,
+        themeId: themeId,
+        title: document.getElementById('submissionTitle').value.trim(),
+        problemStatement: document.getElementById('problemStatement').value.trim(),
+        objectives: document.getElementById('objectives').value.trim(),
+        scope: document.getElementById('scope').value.trim(),
+        techStack: document.getElementById('techStack').value.trim(),
+        docLink: document.getElementById('docLink').value.trim(),
+        submittedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      submissions.push(newSubmission);
+
+      // Create evaluation (mock scoring)
+      const theme = themes.find(t => t.id === themeId);
+      const mockEvaluation = {
+        id: Math.max(...evaluations.map(e => e.id), 0) + 1,
+        submissionId: newSubmission.id,
+        alignmentScore: Math.floor(Math.random() * 40 + 50),
+        matchedCriteria: theme.keywords.slice(0, Math.floor(Math.random() * theme.keywords.length)),
+        missingCriteria: theme.keywords.slice(Math.floor(Math.random() * theme.keywords.length)),
+        overlapFlags: [],
+        summaryText: 'Evaluation in progress...'
+      };
+      evaluations.push(mockEvaluation);
+
+      // Create decision record
+      const mockDecision = {
+        id: Math.max(...decisions.map(d => d.id), 0) + 1,
+        submissionId: newSubmission.id,
+        status: null,
+        comments: [],
+        decidedByUserId: null,
+        decidedAt: null
+      };
+      decisions.push(mockDecision);
+
+      showAlert(`Project idea "${newSubmission.title}" submitted successfully!`, 'success');
+      document.getElementById('submissionForm').reset();
+      loadMySubmission();
+    });
+
+    // Logout
+    function logout() {
+      clearCurrentUser();
+      window.location.href = 'index.html';
+    }
+
+    // Initialize on page load
+    requirePodRole();
+    initPage();
+  </script>
+</body>
+</html>
