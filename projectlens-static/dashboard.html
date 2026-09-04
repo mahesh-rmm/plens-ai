@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - ProjectLens</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .detail-panel {
+      display: none;
+      background-color: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-top: 1rem;
+    }
+
+    .detail-panel.show {
+      display: block;
+    }
+
+    .expandable-row {
+      cursor: pointer;
+    }
+
+    .expandable-row:hover {
+      background-color: #fafafa;
+    }
+
+    th.sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    th.sortable::after {
+      content: ' ↕';
+      opacity: 0.5;
+      font-size: 0.8rem;
+    }
+
+    th.sortable.asc::after {
+      content: ' ↑';
+      opacity: 1;
+    }
+
+    th.sortable.desc::after {
+      content: ' ↓';
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="navbar-content">
+      <h1>ProjectLens</h1>
+      <div class="navbar-right">
+        <div class="user-info">
+          <span id="userName">Loading...</span> | <span id="userRole">TRAINER</span>
+        </div>
+        <button class="btn btn-secondary" onclick="logout()">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <h2 style="margin-top: 2rem; margin-bottom: 1rem;">Trainer Dashboard</h2>
+    <p style="color: #6b7280; margin-bottom: 2rem;">Review, compare, and decide on pod submissions</p>
+
+    <div id="alert-container"></div>
+
+    <!-- Theme Selector -->
+    <div class="card" style="margin-bottom: 2rem;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+        <div>
+          <label style="display: block; margin-bottom: 0.75rem; font-weight: 600;">Select Theme</label>
+          <select id="themeFilter" style="width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 1rem;">
+            <option value="">-- All Themes --</option>
+          </select>
+        </div>
+
+        <div>
+          <label style="display: block; margin-bottom: 0.75rem; font-weight: 600;">Search by Pod or Title</label>
+          <input type="text" id="searchFilter" placeholder="Type to filter..." style="width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 1rem;">
+        </div>
+      </div>
+    </div>
+
+    <!-- Submissions Table -->
+    <div class="card" style="overflow-x: auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Pod</th>
+            <th>Submission Title</th>
+            <th class="sortable" id="sortScore">Alignment Score</th>
+            <th>Status</th>
+            <th>Overlap Flags</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="submissionsTable">
+          <tr>
+            <td colspan="6" style="text-align: center; color: #6b7280;">Loading submissions...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Detail Panel (shown when row is clicked) -->
+    <div id="detailPanel" class="detail-panel">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <h3 id="detailTitle">Submission Details</h3>
+        <button class="btn btn-secondary" onclick="closeDetailPanel()">Close</button>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+        <div>
+          <h4 style="margin-bottom: 0.5rem;">Problem Statement</h4>
+          <p id="detailProblemStatement" style="font-size: 0.9rem; color: #6b7280;"></p>
+        </div>
+        <div>
+          <h4 style="margin-bottom: 0.5rem;">Objectives</h4>
+          <p id="detailObjectives" style="font-size: 0.9rem; color: #6b7280;"></p>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+        <div>
+          <h4 style="margin-bottom: 0.5rem;">Scope</h4>
+          <p id="detailScope" style="font-size: 0.9rem; color: #6b7280;"></p>
+        </div>
+        <div>
+          <h4 style="margin-bottom: 0.5rem;">Technology Stack</h4>
+          <p id="detailTechStack" style="font-size: 0.9rem; color: #6b7280;"></p>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 2rem;">
+        <h4 style="margin-bottom: 0.5rem;">Documentation</h4>
+        <a id="detailDocLink" href="#" target="_blank" style="word-break: break-all;">Opening...</a>
+      </div>
+
+      <!-- Evaluation Details -->
+      <div style="background-color: white; padding: 1.5rem; border-radius: 6px; border: 1px solid #e5e7eb; margin-bottom: 2rem;">
+        <h4 style="margin-bottom: 1rem;">Evaluation</h4>
+        
+        <div style="margin-bottom: 1.5rem;">
+          <p style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;">Alignment Score</p>
+          <p id="detailScore" style="font-size: 1.2rem; font-weight: 600;"></p>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+          <p style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;">Matched Keywords</p>
+          <div id="detailMatched" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div>
+        </div>
+
+        <div style="margin-bottom: 1.5rem;">
+          <p style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;">Missing Keywords</p>
+          <div id="detailMissing" style="display: flex; flex-wrap: wrap; gap: 0.5rem;"></div>
+        </div>
+
+        <div id="overlapSection" style="margin-bottom: 1.5rem; display: none;">
+          <p style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;">Overlap Flags</p>
+          <div id="detailOverlaps" style="display: flex; flex-direction: column; gap: 0.5rem;"></div>
+        </div>
+
+        <div>
+          <p style="font-size: 0.9rem; font-weight: 600; margin-bottom: 0.5rem;">Summary</p>
+          <p id="detailSummary" style="font-size: 0.9rem; color: #6b7280; background-color: #f3f4f6; padding: 0.75rem; border-radius: 4px;"></p>
+        </div>
+      </div>
+
+      <!-- Decision Section -->
+      <div style="background-color: white; padding: 1.5rem; border-radius: 6px; border: 1px solid #e5e7eb;">
+        <h4 style="margin-bottom: 1rem;">Trainer Decision</h4>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label for="decisionStatus">Decision Status</label>
+          <select id="decisionStatus" style="width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 1rem;">
+            <option value="">-- Pending --</option>
+            <option value="APPROVED">Approved</option>
+            <option value="NEEDS_REVISION">Needs Revision</option>
+            <option value="REJECTED">Rejected</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 1rem;">
+          <label for="decisionComments">Feedback Comments</label>
+          <textarea id="decisionComments" placeholder="Add comments for the pod..." style="min-height: 80px;"></textarea>
+        </div>
+
+        <button class="btn btn-primary" onclick="saveDecision()">Save Decision</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/mock-data.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    let currentSortColumn = 'score';
+    let currentSortOrder = 'desc';
+    let selectedSubmissionId = null;
+
+    // Require trainer role
+    requireRole('TRAINER', 'index.html');
+
+    // Initialize page
+    function initPage() {
+      const user = getCurrentUser();
+      document.getElementById('userName').textContent = user.name;
+      loadThemesFilter();
+      loadSubmissions();
+      setupEventListeners();
+    }
+
+    // Load themes into filter dropdown
+    function loadThemesFilter() {
+      const select = document.getElementById('themeFilter');
+      const options = themes.map(theme => `
+        <option value="${theme.id}">${theme.title}</option>
+      `).join('');
+      select.innerHTML = '<option value="">-- All Themes --</option>' + options;
+    }
+
+    // Setup event listeners
+    function setupEventListeners() {
+      document.getElementById('themeFilter').addEventListener('change', loadSubmissions);
+      document.getElementById('searchFilter').addEventListener('keyup', loadSubmissions);
+      document.getElementById('sortScore').addEventListener('click', function() {
+        currentSortOrder = currentSortOrder === 'asc' ? 'desc' : 'asc';
+        this.classList.toggle('asc');
+        this.classList.toggle('desc');
+        loadSubmissions();
+      });
+    }
+
+    // Load and display submissions
+    function loadSubmissions() {
+      const themeId = document.getElementById('themeFilter').value;
+      const searchTerm = document.getElementById('searchFilter').value.toLowerCase();
+      const tbody = document.getElementById('submissionsTable');
+
+      let filtered = submissions;
+
+      // Filter by theme
+      if (themeId) {
+        filtered = filtered.filter(s => s.themeId === parseInt(themeId));
+      }
+
+      // Filter by search term
+      if (searchTerm) {
+        filtered = filtered.filter(s => {
+          const pod = pods.find(p => p.id === s.podId);
+          return pod.name.toLowerCase().includes(searchTerm) || 
+                 s.title.toLowerCase().includes(searchTerm);
+        });
+      }
+
+      // Sort by score
+      filtered.sort((a, b) => {
+        const evalA = evaluations.find(e => e.submissionId === a.id);
+        const evalB = evaluations.find(e => e.submissionId === b.id);
+        const scoreA = evalA ? evalA.alignmentScore : 0;
+        const scoreB = evalB ? evalB.alignmentScore : 0;
+        return currentSortOrder === 'asc' ? scoreA - scoreB : scoreB - scoreA;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: #6b7280;">No submissions found</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(sub => {
+        const pod = pods.find(p => p.id === sub.podId);
+        const evaluation = evaluations.find(e => e.submissionId === sub.id);
+        const decision = decisions.find(d => d.submissionId === sub.id);
+        
+        let decisionBadge = 'badge-info';
+        let decisionText = 'Pending';
+        if (decision && decision.status) {
+          decisionBadge = getDecisionBadgeClass(decision.status);
+          decisionText = getDecisionLabel(decision.status);
+        }
+
+        let overlapText = 'None';
+        if (evaluation && evaluation.overlapFlags && evaluation.overlapFlags.length > 0) {
+          overlapText = `${evaluation.overlapFlags.length} flag(s)`;
+        }
+
+        let score = 'N/A';
+        let scoreBadge = '';
+        if (evaluation) {
+          score = evaluation.alignmentScore + '%';
+          scoreBadge = `<span class="badge ${getScoreBadgeClass(evaluation.alignmentScore)}">${score}</span>`;
+        }
+
+        return `
+          <tr class="expandable-row" onclick="showDetailPanel(${sub.id})">
+            <td><strong>${pod.name}</strong></td>
+            <td>${sub.title}</td>
+            <td>${scoreBadge}</td>
+            <td><span class="badge ${decisionBadge}">${decisionText}</span></td>
+            <td>${overlapText}</td>
+            <td><button class="btn btn-secondary" onclick="event.stopPropagation(); showDetailPanel(${sub.id})">View</button></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // Show detail panel
+    function showDetailPanel(submissionId) {
+      selectedSubmissionId = submissionId;
+      const submission = submissions.find(s => s.id === submissionId);
+      const pod = pods.find(p => p.id === submission.podId);
+      const evaluation = evaluations.find(e => e.submissionId === submissionId);
+      const decision = decisions.find(d => d.submissionId === submissionId);
+
+      // Populate basic info
+      document.getElementById('detailTitle').textContent = `${pod.name} - ${submission.title}`;
+      document.getElementById('detailProblemStatement').textContent = submission.problemStatement;
+      document.getElementById('detailObjectives').textContent = submission.objectives;
+      document.getElementById('detailScope').textContent = submission.scope;
+      document.getElementById('detailTechStack').textContent = submission.techStack;
+      
+      const docLink = document.getElementById('detailDocLink');
+      docLink.href = submission.docLink;
+      docLink.textContent = submission.docLink;
+
+      // Populate evaluation
+      if (evaluation) {
+        document.getElementById('detailScore').innerHTML = `
+          <span class="badge ${getScoreBadgeClass(evaluation.alignmentScore)}">
+            ${evaluation.alignmentScore}% - ${getScoreLabel(evaluation.alignmentScore)}
+          </span>
+        `;
+        
+        document.getElementById('detailMatched').innerHTML = evaluation.matchedCriteria
+          .map(c => `<span class="badge badge-success">${c}</span>`)
+          .join('');
+        
+        document.getElementById('detailMissing').innerHTML = evaluation.missingCriteria
+          .map(c => `<span class="badge badge-danger">${c}</span>`)
+          .join('');
+
+        if (evaluation.overlapFlags && evaluation.overlapFlags.length > 0) {
+          document.getElementById('overlapSection').style.display = 'block';
+          document.getElementById('detailOverlaps').innerHTML = evaluation.overlapFlags
+            .map(flag => {
+              const overlapSub = submissions.find(s => s.id === flag.submissionId);
+              const overlapPod = pods.find(p => p.id === overlapSub.podId);
+              return `
+                <span class="badge badge-warning">
+                  ${flag.similarityPercent}% similar to ${overlapPod.name}: "${overlapSub.title}"
+                </span>
+              `;
+            }).join('');
+        } else {
+          document.getElementById('overlapSection').style.display = 'none';
+        }
+
+        document.getElementById('detailSummary').textContent = evaluation.summaryText;
+      }
+
+      // Populate decision
+      if (decision) {
+        document.getElementById('decisionStatus').value = decision.status || '';
+        document.getElementById('decisionComments').value = decision.comments || '';
+      } else {
+        document.getElementById('decisionStatus').value = '';
+        document.getElementById('decisionComments').value = '';
+      }
+
+      // Show detail panel
+      document.getElementById('detailPanel').classList.add('show');
+      window.scrollTo({ top: document.getElementById('detailPanel').offsetTop - 100, behavior: 'smooth' });
+    }
+
+    // Close detail panel
+    function closeDetailPanel() {
+      document.getElementById('detailPanel').classList.remove('show');
+      selectedSubmissionId = null;
+    }
+
+    // Save decision
+    function saveDecision() {
+      if (!selectedSubmissionId) {
+        showAlert('No submission selected', 'error');
+        return;
+      }
+
+      const status = document.getElementById('decisionStatus').value || null;
+      const comments = document.getElementById('decisionComments').value.trim();
+
+      let decision = decisions.find(d => d.submissionId === selectedSubmissionId);
+      if (!decision) {
+        decision = {
+          id: Math.max(...decisions.map(d => d.id), 0) + 1,
+          submissionId: selectedSubmissionId,
+          status: status,
+          comments: comments,
+          decidedByUserId: getCurrentUser().id,
+          decidedAt: new Date().toISOString()
+        };
+        decisions.push(decision);
+      } else {
+        decision.status = status;
+        decision.comments = comments;
+        decision.decidedByUserId = getCurrentUser().id;
+        decision.decidedAt = new Date().toISOString();
+      }
+
+      showAlert('Decision saved successfully!', 'success');
+      loadSubmissions();
+      closeDetailPanel();
+    }
+
+    // Logout
+    function logout() {
+      clearCurrentUser();
+      window.location.href = 'index.html';
+    }
+
+    // Initialize on page load
+    initPage();
+  </script>
+</body>
+</html>
